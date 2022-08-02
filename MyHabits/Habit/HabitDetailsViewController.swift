@@ -8,7 +8,17 @@
 import UIKit
 
 class HabitDetailsViewController: UIViewController {
-    private lazy var editHabitViewController = EditHabitViewController(habit: habit) 
+    public let habit: Habit
+    
+    private var habitViewController = HabitViewController()
+    public var updatingDelegate: UpdatingCollectionDataDelegate?
+    
+    private let dateFormatter: DateFormatter = {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "HH:mm:a"
+            dateFormatter.locale = Locale(identifier: "en_US")
+            return dateFormatter
+        }()
     
     private lazy var tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .grouped)
@@ -25,8 +35,6 @@ class HabitDetailsViewController: UIViewController {
         return tableView
     }()
     
-    let habit: Habit
-    
     init(habit: Habit) {
         self.habit = habit
         super.init(nibName: nil, bundle: nil)
@@ -39,13 +47,13 @@ class HabitDetailsViewController: UIViewController {
         navigationController?.navigationBar.prefersLargeTitles = false
     }
     
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
         self.navigationController?.navigationBar.tintColor = UIColor.systemPurple
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Править", style: .plain, target: self, action: #selector(editButton))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Править", style: .plain, target: self, action: #selector(editHabit))
         setupView()
+        
     }
     
     func setupView() {
@@ -62,10 +70,37 @@ class HabitDetailsViewController: UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    @objc func editButton() {
-        print(#function)
-        self.navigationController?.present(editHabitViewController, animated: true, completion: nil)
+    @objc func editHabit() {
+        habitViewController.myTitle = "Сохранить"
+        habitViewController.check = false
+        habitViewController.habitDetailsViewController = self
         
+        self.navigationController?.pushViewController(habitViewController, animated: true)
+        self.habitViewController.deleteHabitButton.isHidden = false
+        self.habitViewController.nameHabitTF.text = self.habit.name
+        self.habitViewController.habitTimeDatePicker.date = self.habit.date
+        self.habitViewController.colorView.backgroundColor = self.habit.color
+        self.habitViewController.habitTimeDateTextLb.text = self.dateFormatter.string(from: habit.date)
+        self.updatingDelegate?.updateCollection()
+    }
+    
+    @objc func showDeleteAlert(_ sender: UIButton) {
+        let deleteAlertController = UIAlertController(title: "Удалить привычку?", message: "Вы хотите удалить привычку '\(habit.name)'?", preferredStyle: .alert)
+        let cancelDeleteAction = UIAlertAction(title: "Отмена", style: .default) { _ in
+        }
+        let completeDeleteAction = UIAlertAction(title: "Удалить", style: .destructive) { _ in
+            if let oldHabit = HabitsStore.shared.habits.firstIndex(where: ({ $0.name == self.habit.name })) {
+                HabitsStore.shared.habits.remove(at: oldHabit )
+            }
+            
+            self.dismiss(animated: true) {
+                self.updatingDelegate?.updateCollection()
+                self.navigationController?.popToRootViewController(animated: true)
+            }
+        }
+        deleteAlertController.addAction(cancelDeleteAction)
+        deleteAlertController.addAction(completeDeleteAction)
+        self.present(deleteAlertController, animated: true, completion: nil)
     }
     
 }
@@ -94,3 +129,12 @@ extension HabitDetailsViewController: UITableViewDelegate, UITableViewDataSource
     }
     
 }
+extension HabitDetailsViewController: UpdatingCollectionDataDelegate {
+    func updateCollection() {
+        self.updatingDelegate?.updateCollection()
+    }
+    
+    
+}
+
+

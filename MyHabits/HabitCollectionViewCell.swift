@@ -8,6 +8,7 @@
 import UIKit
 
 class HabitCollectionViewCell: UICollectionViewCell {
+    var updatingDelegate: UpdatingCollectionDataDelegate?
     static let identifier = "HabitCollectionViewCell"
     var checkMarkIsChecked = false
     
@@ -58,7 +59,6 @@ class HabitCollectionViewCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .white
-        
         setupView()
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(changeCheckMark))
@@ -94,7 +94,7 @@ class HabitCollectionViewCell: UICollectionViewCell {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-//MARK: ERROR 2 В этом методе не получается после установки галочки обновить колекншвью чтобы сработал прогресс бар с анимацией. Все работает когда переключаться между экранами.
+
     @objc func changeCheckMark() {
         if checkMarkIsChecked == false && habit?.isAlreadyTakenToday == false {
             checkMark.backgroundColor = habit?.color
@@ -102,14 +102,13 @@ class HabitCollectionViewCell: UICollectionViewCell {
             checkMark.tintColor = .white
             checkMarkIsChecked = true
             HabitsStore.shared.track(habit!)
+            self.updatingDelegate?.updateCollection()
             print("Пользователь успешно добавил привычку")
-            //contentView.reloadInputViews()
-            let vc = HabitsViewController()
-            vc.updateCollectionView()
         } else {
             print("Привычка уже отслеживается до сегодняшнего дня")
         }
     }
 }
+
 
 
