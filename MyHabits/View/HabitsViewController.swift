@@ -7,8 +7,17 @@
 
 import UIKit
 
+protocol UpdatingCollectionDataDelegate: AnyObject {
+    func updateCollection()
+}
+protocol MakeACallFromEditToDetail {
+    func makeACall()
+}
+
+
 class HabitsViewController: UIViewController {
     
+    private var habitDetailsViewController: HabitDetailsViewController?
     private lazy var layout: UICollectionViewFlowLayout = {
         let layout = UICollectionViewFlowLayout()
         layout.sectionInset = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
@@ -40,15 +49,6 @@ class HabitsViewController: UIViewController {
         setupView()
     }
     
-    override func viewDidLayoutSubviews() {
-        print("ops")
-    }
-    
-    func updateCollectionView() {
-        print(#function)
-        self.collectionView.reloadData()
-    }
-    
     func setupView() {
         view.addSubview(collectionView)
         NSLayoutConstraint.activate([
@@ -59,18 +59,18 @@ class HabitsViewController: UIViewController {
             
         ])
     }
-    
+        
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.navigationBar.prefersLargeTitles = true
-        collectionView.reloadData()
     }
     
     @objc func newHabit() {
-        let newHabitVC = NewHabit()
-        navigationController?.pushViewController(newHabitVC, animated: true)
+        let newHabitVC = HabitViewController()
+        newHabitVC.myTitle = "Создать"
+        self.navigationController?.pushViewController(newHabitVC, animated: true)
+        newHabitVC.updatingDelegate = self
     }
-
 
 }
 
@@ -95,6 +95,7 @@ extension HabitsViewController: UICollectionViewDataSource, UICollectionViewDele
         guard HabitsStore.shared.habits.count > indexPath.row else { return collectionView.dequeueReusableCell(withReuseIdentifier: "defaultcell", for: indexPath) }
         
         let habit = HabitsStore.shared.habits[indexPath.item]
+        habitCell.updatingDelegate = self
         habitCell.habit = habit
         habitCell.layer.cornerRadius = 8
         if habitCell.habit?.isAlreadyTakenToday == true {
@@ -108,12 +109,14 @@ extension HabitsViewController: UICollectionViewDataSource, UICollectionViewDele
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        print("section \(indexPath.section) - item \(indexPath.row)")
-        let habitDetailsViewController: HabitDetailsViewController
         if indexPath.section != 0 {
             let habit = HabitsStore.shared.habits[indexPath.item]
             habitDetailsViewController = HabitDetailsViewController(habit: habit)
-            navigationController?.pushViewController(habitDetailsViewController, animated: true)
+            
+            if habitDetailsViewController != nil {
+                navigationController?.pushViewController(habitDetailsViewController!, animated: true)
+                habitDetailsViewController!.updatingDelegate = self
+            }
         }
     }
     
@@ -122,4 +125,12 @@ extension HabitsViewController: UICollectionViewDataSource, UICollectionViewDele
         return indexPath.section == 0 ? CGSize(width: width, height: 60) : CGSize(width: width, height: 130)
     }
 }
+
+extension HabitsViewController: UpdatingCollectionDataDelegate {
+    func updateCollection() {
+        collectionView.reloadData()
+    }
+}
+
+
 

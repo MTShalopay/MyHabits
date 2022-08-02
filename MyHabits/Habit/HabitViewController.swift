@@ -1,5 +1,5 @@
 //
-//  NewHabit.swift
+//  HabitViewController.swift
 //  MyHabits
 //
 //  Created by Shalopay on 28.06.2022.
@@ -7,8 +7,12 @@
 
 import UIKit
 
-class NewHabit: UIViewController {
-    private let myTitle = "Создать"
+class HabitViewController: UIViewController {
+    var updatingDelegate: UpdatingCollectionDataDelegate?
+    weak var habitDetailsViewController: HabitDetailsViewController?
+    public lazy var check: Bool = true
+    
+    public lazy var myTitle: String = ""
     private lazy var habitColor: UIColor = .black
     
     private let dateFormatter: DateFormatter = {
@@ -27,7 +31,7 @@ class NewHabit: UIViewController {
         return nameHabitLb
     }()
     
-    private lazy var nameHabitTF: UITextField = {
+    public lazy var nameHabitTF: UITextField = {
        let nameHabitTF = UITextField()
         nameHabitTF.placeholder = "Бегать по утрам, спать 8 часов и т.п."
         nameHabitTF.font = .systemFont(ofSize: 17)
@@ -51,7 +55,7 @@ class NewHabit: UIViewController {
         return nameColorLb
     }()
     
-    private lazy var colorView: UIView = {
+    public lazy var colorView: UIView = {
         let colorView = UIView()
         colorView.backgroundColor = habitColor
         colorView.isUserInteractionEnabled = true
@@ -77,7 +81,7 @@ class NewHabit: UIViewController {
         return habitTimeTextLb
     }()
     
-    private lazy var habitTimeDateTextLb: UILabel = {
+    public lazy var habitTimeDateTextLb: UILabel = {
         let habitTimeDateTextLb = UILabel()
         habitTimeDateTextLb.font = .systemFont(ofSize: 17)
         habitTimeDateTextLb.text = dateFormatter.string(from: habitTimeDatePicker.date)
@@ -86,7 +90,7 @@ class NewHabit: UIViewController {
         return habitTimeDateTextLb
     }()
     
-    private lazy var habitTimeDatePicker: UIDatePicker = {
+    public lazy var habitTimeDatePicker: UIDatePicker = {
         let habitTimeDatePicker = UIDatePicker()
         habitTimeDatePicker.datePickerMode = .time
         habitTimeDatePicker.preferredDatePickerStyle = .wheels
@@ -96,12 +100,22 @@ class NewHabit: UIViewController {
         return habitTimeDatePicker
     }()
     
+    public lazy var deleteHabitButton: UIButton = {
+        let deleteHabitButton = UIButton(type: .system)
+        deleteHabitButton.setTitle("Удалить привычку", for: .normal)
+        deleteHabitButton.setTitleColor(.red, for: .normal)
+        deleteHabitButton.addTarget(habitDetailsViewController, action: #selector(habitDetailsViewController!.showDeleteAlert(_:)), for: .touchUpInside)
+        deleteHabitButton.translatesAutoresizingMaskIntoConstraints = false
+        deleteHabitButton.isHidden = true
+        return deleteHabitButton
+    }()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
         view.backgroundColor = .white
         title = myTitle
+    
         self.navigationController?.navigationBar.tintColor = UIColor.systemPurple
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Отменить", style: .plain, target: self, action: #selector(cancelButton))
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Сохранить", style: .plain, target: self, action: #selector(addButton))
@@ -134,6 +148,7 @@ class NewHabit: UIViewController {
         view.addSubview(habitTimeTextLb)
         view.addSubview(habitTimeDateTextLb)
         view.addSubview(habitTimeDatePicker)
+        view.addSubview(deleteHabitButton)
         
         NSLayoutConstraint.activate([
             nameHabitLb.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -169,25 +184,40 @@ class NewHabit: UIViewController {
             habitTimeDatePicker.topAnchor.constraint(equalTo: habitTimeDateTextLb.bottomAnchor, constant: 15),
             habitTimeDatePicker.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             habitTimeDatePicker.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-        
+            deleteHabitButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
+            deleteHabitButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            
         ])
     }
-    
     
     @objc func cancelButton() {
         navigationController?.popViewController(animated: true)
     }
     @objc func addButton() {
-        
-        //((newHabitNameTextField.text?.isEmpty) != Optional(false))
         if ((nameHabitTF.text?.isEmpty) != false) {
             nameHabitTF.text = "Забыли заполнить поле"
-            
         }
-        let newHabit = Habit(name: nameHabitTF.text ?? "Пусто", date: habitTimeDatePicker.date, color: habitColor)
-        let store = HabitsStore.shared
-        store.habits.append(newHabit)
-        navigationController?.popViewController(animated: true)
+        if check == true {
+            let newHabit = Habit(name: nameHabitTF.text ?? "Пусто", date: habitTimeDatePicker.date, color: habitColor)
+            let store = HabitsStore.shared
+            store.habits.append(newHabit)
+            self.updatingDelegate?.updateCollection()
+            navigationController?.popToRootViewController(animated: true)
+            
+        } else {
+            let editedHabit = Habit(
+                name: nameHabitTF.text ?? "NO DATA",
+                date: habitTimeDatePicker.date,
+                color: colorView.backgroundColor ?? habitDetailsViewController!.habit.color
+            )
+            editedHabit.trackDates = habitDetailsViewController!.habit.trackDates
+            if let index = HabitsStore.shared.habits.firstIndex(where: { $0 == self.habitDetailsViewController!.habit }) {
+                HabitsStore.shared.habits[index] = editedHabit
+            }
+            self.dismiss(animated: true) {
+                self.navigationController?.popToRootViewController(animated: true)
+            }
+        }
     }
     
     @objc func presentColorPicker() {
@@ -208,27 +238,24 @@ class NewHabit: UIViewController {
     }
     
 }
-extension NewHabit: UITextFieldDelegate {
+extension HabitViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         view.endEditing(true)
         return true
     }
 }
 
-extension NewHabit: UIColorPickerViewControllerDelegate {
+extension HabitViewController: UIColorPickerViewControllerDelegate {
     func colorPickerViewControllerDidSelectColor(_ viewController: UIColorPickerViewController) {
-        print(#function)
         let selectedColor = viewController.selectedColor
         habitColor = selectedColor
         colorView.backgroundColor = habitColor
     }
     func colorPickerViewControllerDidFinish(_ viewController: UIColorPickerViewController) {
-        print(#function)
         let selectedColor = viewController.selectedColor
         habitColor = selectedColor
         colorView.backgroundColor = habitColor
     }
     func colorPickerViewController(_ viewController: UIColorPickerViewController, didSelect: UIColor, continuously: Bool) {
-        print(#function)
     }
 }
